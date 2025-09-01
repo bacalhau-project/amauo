@@ -277,6 +277,47 @@ else
     echo "INFO: Bacalhau nodes may not be able to access S3 (sensor simulator doesn't need S3)"
 fi
 
+# Setup AWS credentials for Bacalhau compute nodes (for S3 job access)
+echo "Setting up AWS credentials..."
+AWS_CREDS_SOURCE="/etc/aws/credentials/aws-credentials"
+if [ -f "$AWS_CREDS_SOURCE" ]; then
+    # Setup for root user (Docker containers including Bacalhau)
+    sudo mkdir -p /root/.aws
+    sudo cp "$AWS_CREDS_SOURCE" /root/.aws/credentials
+    sudo chown root:root /root/.aws/credentials
+    sudo chmod 600 /root/.aws/credentials
+
+    # Create basic AWS config for root
+    sudo tee /root/.aws/config > /dev/null << EOF
+[default]
+region = us-west-2
+output = json
+EOF
+    sudo chown root:root /root/.aws/config
+    sudo chmod 600 /root/.aws/config
+
+    # Setup for ubuntu user
+    sudo mkdir -p /home/ubuntu/.aws
+    sudo cp "$AWS_CREDS_SOURCE" /home/ubuntu/.aws/credentials
+    sudo chown ubuntu:ubuntu /home/ubuntu/.aws/credentials
+    sudo chmod 600 /home/ubuntu/.aws/credentials
+
+    # Create basic AWS config for ubuntu
+    sudo -u ubuntu tee /home/ubuntu/.aws/config > /dev/null << EOF
+[default]
+region = us-west-2
+output = json
+EOF
+    sudo chmod 600 /home/ubuntu/.aws/config
+
+    echo "SUCCESS: AWS credentials and config set up for both root and ubuntu users"
+    echo "INFO: Bacalhau compute jobs will have S3 access via mounted credentials"
+    echo "INFO: Sensor simulator writes to host directories only - no AWS access needed"
+else
+    echo "WARNING: AWS credentials not found at $AWS_CREDS_SOURCE"
+    echo "INFO: Bacalhau nodes may not be able to access S3 (sensor simulator doesn't need S3)"
+fi
+
 # Generate node identity if the script exists
 if [ -x /usr/local/bin/generate_node_identity.py ]; then
     echo "Generating node identity..."
