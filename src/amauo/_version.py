@@ -10,10 +10,9 @@ except Exception:
 
 version = __version__
 
-# Create version tuple (handle dev versions)
-version_clean = __version__.split("+")[0]  # Remove +dev suffix
-version_parts = version_clean.split(".")
-__version_tuple__ = tuple(int(p) for p in version_parts[:3] if p.isdigit())
+# Create version tuple
+version_parts = __version__.replace(".dev", ".0.dev").split(".")
+__version_tuple__ = tuple(int(p) if p.isdigit() else p for p in version_parts)
 version_tuple = __version_tuple__
 
 # Git commit info (not used but kept for compatibility)
