@@ -145,19 +145,13 @@ fi
 
 # Get instance metadata for node labeling
 echo "Retrieving instance metadata..."
+INSTANCE_ID=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/instance-id || echo "unknown")
+REGION=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/placement/region || echo "unknown")
 
-# Test metadata service connectivity first
-if curl -s --max-time 2 http://169.254.169.254/ > /dev/null 2>&1; then
-    echo "DEBUG: EC2 metadata service is accessible"
-    INSTANCE_ID=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "")
-    REGION=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo "")
-
-    # Check if we got empty responses
-    if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "unknown" ]; then
-        echo "WARNING: Could not retrieve instance ID from metadata service"
-        INSTANCE_ID=$(hostname)
-        echo "INFO: Using hostname as fallback: $INSTANCE_ID"
-    fi
+if [ "$INSTANCE_ID" = "unknown" ]; then
+    echo "WARNING: Could not retrieve instance ID from metadata service"
+    INSTANCE_ID=$(hostname)
+fi
 
     if [ -z "$REGION" ] || [ "$REGION" = "unknown" ]; then
         echo "WARNING: Could not retrieve region from metadata service"
@@ -168,8 +162,6 @@ else
     echo "WARNING: EC2 metadata service is not accessible"
     INSTANCE_ID=$(hostname)
     REGION="us-west-2"
-    echo "INFO: Using hostname as fallback: $INSTANCE_ID"
-    echo "INFO: Using default region: $REGION"
 fi
 
 echo "SUCCESS: Using orchestrator endpoint: $ENDPOINT"
@@ -197,6 +189,28 @@ if ! sed -e "s|{{ORCHESTRATOR_ENDPOINT}}|$ENDPOINT|g" \
 fi
 
 echo "SUCCESS: Bacalhau configuration generated from template"
+
+# Debug: Show a few key lines from generated config
+echo "DEBUG: Generated config preview:"
+grep -A 1 -E "(Name:|ClientID:|Token:|Orchestrators:)" /bacalhau_node/config.yaml | head -10
+
+# CRITICAL: Validate that template substitution actually worked
+if grep -q "{{" /bacalhau_node/config.yaml; then
+    echo "ERROR: Template placeholders still found in generated config!"
+    echo "ERROR: Failed substitution patterns:"
+    grep "{{" /bacalhau_node/config.yaml
+    echo "ERROR: This indicates template substitution failed - aborting"
+    exit 1
+fi
+
+# Validate that the node has a unique identifier
+if ! grep -q "Name.*bacalhau-" /bacalhau_node/config.yaml; then
+    echo "ERROR: Node name not properly configured"
+    echo "ERROR: Node identity validation failed - aborting"
+    exit 1
+fi
+
+echo "SUCCESS: Configuration validation passed"
 
 # Debug: Show a few key lines from generated config
 echo "DEBUG: Generated config preview:"
