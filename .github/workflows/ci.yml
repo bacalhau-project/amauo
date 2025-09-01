@@ -104,8 +104,8 @@ jobs:
         VERSION=$(cat src/amauo/__version__)
         echo "Package version: $VERSION"
 
-        # Update pyproject.toml with the actual version
-        sed -i "s/version = \"0.0.0\"/version = \"$VERSION\"/" pyproject.toml
+        # Update pyproject.toml to match
+        sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 
         echo "Building package..."
         uv build
