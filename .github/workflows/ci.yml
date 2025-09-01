@@ -104,15 +104,8 @@ jobs:
         VERSION=$(cat src/amauo/__version__)
         echo "Package version: $VERSION"
 
-        # Update pyproject.toml to match - target the specific line number
-        LINE_NUM=$(grep -n "^version = " pyproject.toml | head -1 | cut -d: -f1)
-        if [ -n "$LINE_NUM" ]; then
-          sed -i "${LINE_NUM}s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
-          echo "Updated line $LINE_NUM in pyproject.toml to version $VERSION"
-        else
-          echo "ERROR: Could not find version line in pyproject.toml"
-          exit 1
-        fi
+        # Update pyproject.toml with the actual version
+        sed -i "s/version = \"0.0.0\"/version = \"$VERSION\"/" pyproject.toml
 
         echo "Building package..."
         uv build
