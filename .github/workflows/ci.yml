@@ -105,7 +105,7 @@ jobs:
         echo "Package version: $VERSION"
 
         # Update pyproject.toml to match
-        sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+        sed -i "/^\[project\]/,/^\[/ s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 
         echo "Building package..."
         uv build
