@@ -35,6 +35,83 @@ from .core.state import SimpleStateManager
 console = Console()
 
 
+def _show_directory_status(
+    config_path: str, config_obj: Optional[SimpleConfig] = None
+) -> None:
+    """Show status of key directories and files."""
+    info_lines = []
+
+    # Working directory
+    cwd = os.getcwd()
+    info_lines.append(f"Working Directory: [cyan]{cwd}[/cyan]")
+
+    # Config file
+    config_file = Path(config_path)
+    if config_file.exists():
+        info_lines.append(f"Config File: [green]✅ {config_file.absolute()}[/green]")
+    else:
+        info_lines.append(
+            f"Config File: [red]❌ {config_file.absolute()} (not found)[/red]"
+        )
+
+    # Instance state file
+    instances_file = Path("instances.json")
+    if instances_file.exists():
+        info_lines.append(
+            f"Instance State: [green]✅ {instances_file.absolute()}[/green]"
+        )
+    else:
+        info_lines.append(
+            f"Instance State: [yellow]⚠️ {instances_file.absolute()} (will be created)[/yellow]"
+        )
+
+    # Files directory (from config if available)
+    files_dir = None
+    if (
+        config_obj
+        and hasattr(config_obj, "aws")
+        and hasattr(config_obj.aws, "files_directory")
+    ):
+        files_dir = Path(config_obj.aws.files_directory)
+    else:
+        # Default fallback
+        files_dir = Path("files")
+
+    if files_dir and files_dir.exists():
+        info_lines.append(f"Files Directory: [green]✅ {files_dir.absolute()}[/green]")
+    else:
+        info_lines.append(
+            f"Files Directory: [red]❌ {files_dir.absolute() if files_dir else 'Not configured'} (not found)[/red]"
+        )
+
+    # AWS credentials
+    aws_creds_file = Path.home() / ".aws" / "credentials"
+    aws_env = os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_PROFILE")
+    if aws_creds_file.exists() or aws_env:
+        info_lines.append("AWS Credentials: [green]✅ Configured[/green]")
+    else:
+        info_lines.append(
+            "AWS Credentials: [red]❌ Not found (~/.aws/credentials or environment)[/red]"
+        )
+
+    # Cache directory
+    cache_dir = Path(".aws_cache")
+    if cache_dir.exists():
+        info_lines.append(f"AMI Cache: [green]✅ {cache_dir.absolute()}[/green]")
+    else:
+        info_lines.append(
+            f"AMI Cache: [yellow]⚠️ {cache_dir.absolute()} (will be created)[/yellow]"
+        )
+
+    panel = Panel(
+        "\n".join(info_lines),
+        title="[bold]📁 Directory Status[/bold]",
+        border_style="blue",
+        padding=(0, 1),
+    )
+    console.print(panel)
+
+
 @click.group(invoke_without_command=True)
 @click.option(
     "-c",
