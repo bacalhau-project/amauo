@@ -1,0 +1,6 @@
+# Deployment manifest - references instance-files/
+deployment:
+  # Package everything in instance-files/ as a tarball
+  tarball_source: instance-files
+
+  # Cloud-init will extract and run setup.sh from the tarball

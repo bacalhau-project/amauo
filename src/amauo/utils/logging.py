@@ -2,20 +2,44 @@
 
 import logging
 import re
+from collections import deque
 from typing import Any, Optional
 
 from .display import console
+
+
+class LogBuffer:
+    """In-memory buffer for log messages (max 100 messages)."""
+
+    def __init__(self, maxlen: int = 100) -> None:
+        self.buffer: deque[str] = deque(maxlen=maxlen)
+
+    def append(self, message: str) -> None:
+        """Add a message to the buffer."""
+        self.buffer.append(message)
+
+    def get_lines(self) -> list[str]:
+        """Get all buffered messages as a list."""
+        return list(self.buffer)
+
+    def get_text(self) -> str:
+        """Get all buffered messages as a single string."""
+        return "\n".join(self.buffer)
 
 
 class ConsoleLogger(logging.Handler):
     """Custom logging handler that adds instance context to console output."""
 
     def __init__(
-        self, console_obj: Any = None, instance_ip_map: Optional[dict[str, str]] = None
+        self,
+        console_obj: Any = None,
+        instance_ip_map: Optional[dict[str, str]] = None,
+        log_buffer: Optional[LogBuffer] = None,
     ) -> None:
         super().__init__()
         self.console = console_obj or console
         self.instance_ip_map = instance_ip_map or {}
+        self.log_buffer = log_buffer
         self.setLevel(logging.INFO)
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -72,6 +96,10 @@ class ConsoleLogger(logging.Handler):
                 ):
                     msg = f"{prefix} {msg}"
 
+            # Write to log buffer if available
+            if self.log_buffer:
+                self.log_buffer.append(msg)
+
             # During instance creation, we don't want console output
             # as it interferes with the live table display
             # Messages are still logged to the file
@@ -82,19 +110,22 @@ class ConsoleLogger(logging.Handler):
 
 
 def setup_logger(
-    name: str, log_filename: str, console_handler: Optional[ConsoleLogger] = None
+    name: str,
+    log_filename: Optional[str] = None,
+    console_handler: Optional[ConsoleLogger] = None,
 ) -> logging.Logger:
-    """Set up a logger with file and optional console handlers."""
+    """Set up a logger with optional file and console handlers."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
     if not logger.handlers:
-        # File handler
-        file_handler = logging.FileHandler(log_filename)
-        file_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s - %(threadName)s - %(message)s")
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        # File handler (only if filename provided)
+        if log_filename:
+            file_handler = logging.FileHandler(log_filename)
+            file_handler.setLevel(logging.INFO)
+            formatter = logging.Formatter("%(asctime)s - %(threadName)s - %(message)s")
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
 
         # Console handler if provided
         if console_handler:

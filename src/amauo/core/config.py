@@ -1,9 +1,12 @@
 """Configuration management for spot deployer."""
 
+import logging
 import os
 from typing import Any, Optional, cast
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleConfig:
@@ -29,10 +32,12 @@ class SimpleConfig:
             with open(self.config_file) as f:
                 return yaml.safe_load(f) or {}
         except FileNotFoundError:
-            print(f"Config file {self.config_file} not found. Run 'setup' first.")
+            logger.error(
+                f"Config file {self.config_file} not found. Run 'setup' first."
+            )
             return {}
         except Exception as e:
-            print(f"Error loading config: {e}")
+            logger.error(f"Error loading config: {e}")
             return {}
 
     def regions(self) -> list[str]:
@@ -82,9 +87,9 @@ class SimpleConfig:
                     with open(key_path) as f:
                         return f.read().strip()
                 except Exception as e:
-                    print(f"Error reading public key from {key_path}: {e}")
+                    logger.error(f"Error reading public key from {key_path}: {e}")
             else:
-                print(f"❌ Public SSH key not found at '{key_path}'")
+                logger.error(f"❌ Public SSH key not found at '{key_path}'")
         return None
 
     def files_directory(self) -> str:
