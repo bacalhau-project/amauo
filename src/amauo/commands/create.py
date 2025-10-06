@@ -1212,38 +1212,6 @@ def cmd_create(
                 item["created"],
             )
 
-        # Add overflow summary row if needed
-        if overflow_count > 0:
-            # Count overflow by status
-            overflow_deployed = sum(
-                1 for _, item in all_items[MAX_ROWS:] if "SUCCESS" in item["status"]
-            )
-            overflow_errors = sum(
-                1 for _, item in all_items[MAX_ROWS:] if "ERROR" in item["status"]
-            )
-            overflow_pending = overflow_count - overflow_deployed - overflow_errors
-
-            summary_parts = []
-            if overflow_deployed > 0:
-                summary_parts.append(f"{overflow_deployed} deployed")
-            if overflow_errors > 0:
-                summary_parts.append(f"{overflow_errors} errors")
-            if overflow_pending > 0:
-                summary_parts.append(f"{overflow_pending} pending")
-
-            overflow_summary = (
-                f"... | +{overflow_count} more | {', '.join(summary_parts)}"
-            )
-            add_instance_row(
-                table,
-                "[dim]...[/dim]",
-                "[dim]...[/dim]",
-                f"[dim]{overflow_summary}[/dim]",
-                "",
-                "",
-                "",
-            )
-
         # Create layout with table taking most space and logs at bottom
         layout = Layout()
 
