@@ -1241,7 +1241,7 @@ def cmd_create(
                 f"[dim]{overflow_summary}[/dim]",
                 "",
                 "",
-                False,
+                "",
             )
 
         # Create layout with table taking most space and logs at bottom
