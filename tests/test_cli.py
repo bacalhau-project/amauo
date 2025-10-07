@@ -75,8 +75,8 @@ def test_config_file_missing():
 
     # Should exit with 0 but show config file not found message
     assert result.exit_code == 0
-    # Should show config file not found message
-    assert "Config file nonexistent.yaml not found" in result.output
+    # Should show config file not found in Directory Status panel
+    assert "nonexistent.yaml (not found)" in result.output
 
 
 @pytest.fixture
