@@ -1,10 +1,14 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0+dev"
 
 [project]
 name = "amauo"
-version = "3.0.14"
+dynamic = ["version"]
 description = "Deploy Bacalhau compute nodes globally using AWS spot instances for cost-effective distributed computing"
 readme = "README.md"
 license = "MIT"

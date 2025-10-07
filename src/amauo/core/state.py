@@ -1,9 +1,12 @@
 """State management for tracking deployed instances."""
 
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any, cast
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleStateManager:
@@ -21,7 +24,7 @@ class SimpleStateManager:
         except FileNotFoundError:
             return []
         except Exception as e:
-            print(f"Error loading state: {e}")
+            logger.error(f"Error loading state: {e}")
             return []
 
     def save_instances(self, instances: list[dict]) -> None:
@@ -36,7 +39,7 @@ class SimpleStateManager:
             with open(self.state_file, "w") as f:
                 json.dump(data, f, indent=2, default=str)
         except Exception as e:
-            print(f"Error saving state: {e}")
+            logger.error(f"Error saving state: {e}")
 
     def add_instance(self, instance: dict) -> None:
         """Add instance to state."""

@@ -1,6 +1,7 @@
 """AWS-specific utility functions."""
 
 import json
+import logging
 import os
 import threading
 import time
@@ -16,6 +17,8 @@ from ..core.constants import (
     DEFAULT_UBUNTU_AMI_PATTERN,
 )
 from .display import rich_error
+
+logger = logging.getLogger(__name__)
 
 # Global AMI cache
 AMI_CACHE: dict[str, str] = {}
@@ -67,7 +70,7 @@ def get_latest_ubuntu_ami(
         if log_function:
             log_function(msg)
         else:
-            print(msg)
+            logger.info(msg)
 
     # Check memory cache first (fastest)
     with CACHE_LOCK:
@@ -157,44 +160,17 @@ def check_aws_auth() -> bool:
             cred_type = "AWS Credentials"
             cred_info = "from environment or config"
 
-        # Check if we're using environment variables
-        if os.environ.get("AWS_ACCESS_KEY_ID"):
-            cred_source = "Environment Variables"
-        elif os.environ.get("AWS_PROFILE"):
-            cred_source = f"AWS Profile: {os.environ.get('AWS_PROFILE')}"
-        elif os.environ.get("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"):
-            cred_source = "ECS Task Role"
-        elif os.environ.get("AWS_WEB_IDENTITY_TOKEN_FILE"):
-            cred_source = "Web Identity Token"
-        else:
-            # Check for SSO cache
-            sso_cache_dir = os.path.expanduser("~/.aws/sso/cache")
-            if os.path.exists(sso_cache_dir) and any(
-                f.endswith(".json")
-                for f in os.listdir(sso_cache_dir)
-                if os.path.isfile(os.path.join(sso_cache_dir, f))
-            ):
-                cred_source = "AWS SSO"
-            else:
-                cred_source = "AWS Config File or Instance Profile"
-
         # Display the authentication information
-        from .display import Panel, console
+        from .display import console
 
         if console:
-            auth_info = f"""[green]✓ AWS Authentication Successful[/green]
-
-[bold]Credential Type:[/bold] {cred_type}
-[bold]Credential Source:[/bold] {cred_source}
-[bold]Identity:[/bold] {cred_info}
-[bold]Account:[/bold] {account}
-[bold]Region:[/bold] {boto3.Session().region_name or "us-east-1"}"""
-
+            # Just print simple message, don't build unused panel
             console.print(
-                Panel(auth_info, title="AWS Credentials", border_style="green")
+                f"✓ AWS Auth: {cred_type} - {cred_info} (Account: {account})",
+                style="green",
             )
         else:
-            print(f"✓ AWS Auth: {cred_type} - {cred_info} (Account: {account})")
+            logger.info(f"✓ AWS Auth: {cred_type} - {cred_info} (Account: {account})")
 
         return True
     except Exception as e:
@@ -268,7 +244,7 @@ def create_simple_security_group(
 
         return sg_id
     except Exception as e:
-        print(f"Error creating security group: {e}")
+        logger.error(f"Error creating security group: {e}")
         raise
 
 
@@ -379,7 +355,7 @@ def create_deployment_vpc(
         return vpc_id, subnet_id, igw_id
 
     except Exception as e:
-        print(f"Error creating VPC in {region}: {e}")
+        logger.error(f"Error creating VPC in {region}: {e}")
         # Clean up any resources that were created
         try:
             if "vpc_id" in locals():
@@ -458,7 +434,7 @@ def delete_deployment_vpc(ec2_client: Any, vpc_id: str) -> bool:
                 try:
                     ec2_client.delete_route_table(RouteTableId=rt["RouteTableId"])
                 except Exception as e:
-                    print(
+                    logger.warning(
                         f"Warning: Could not delete route table {rt['RouteTableId']}: {e}"
                     )
 
@@ -468,7 +444,7 @@ def delete_deployment_vpc(ec2_client: Any, vpc_id: str) -> bool:
         return True
 
     except Exception as e:
-        print(f"Error deleting VPC {vpc_id}: {e}")
+        logger.error(f"Error deleting VPC {vpc_id}: {e}")
         return False
 
 
@@ -487,7 +463,7 @@ def ensure_default_vpc(ec2_client: Any, region: str) -> Optional[str]:
             return cast(Optional[str], vpcs["Vpcs"][0]["VpcId"])
 
         # Create default VPC if it doesn't exist
-        print(f"No default VPC found in {region}, creating one...")
+        logger.info(f"No default VPC found in {region}, creating one...")
         response = ec2_client.create_default_vpc()
         vpc_id = cast(str, response["Vpc"]["VpcId"])
 
@@ -495,9 +471,9 @@ def ensure_default_vpc(ec2_client: Any, region: str) -> Optional[str]:
         waiter = ec2_client.get_waiter("vpc_available")
         waiter.wait(VpcIds=[vpc_id])
 
-        print(f"Created default VPC {vpc_id} in {region}")
+        logger.info(f"Created default VPC {vpc_id} in {region}")
         return vpc_id
 
     except Exception as e:
-        print(f"Error ensuring default VPC in {region}: {e}")
+        logger.error(f"Error ensuring default VPC in {region}: {e}")
         return None

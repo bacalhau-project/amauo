@@ -88,26 +88,20 @@ class DeploymentDiscovery:
             DeploymentMode indicating the type of deployment structure found
         """
         # Debug output
-        print(f"Debug: Checking from path {self.start_path}")
+        logger.debug(f"Checking from path {self.start_path}")
 
         # Check for portable mode (.spot directory with deployment.yaml)
         spot_dir = self.start_path / ".spot"
-        print(f"Debug: Checking .spot at {spot_dir}, exists: {spot_dir.exists()}")
+        logger.debug(f"Checking .spot at {spot_dir}, exists: {spot_dir.exists()}")
         if spot_dir.exists() and (spot_dir / "deployment.yaml").exists():
             return DeploymentMode.PORTABLE
 
         # Check for convention mode (deployment/ directory)
         deployment_dir = self.start_path / "deployment"
-        print(
-            f"Debug: Checking deployment at {deployment_dir}, exists: {deployment_dir.exists()}"
+        logger.debug(
+            f"Checking deployment at {deployment_dir}, exists: {deployment_dir.exists()}"
         )
         if deployment_dir.exists() and deployment_dir.is_dir():
-            setup_sh = deployment_dir / "setup.sh"
-            init_sh = deployment_dir / "init.sh"
-            print(
-                f"Debug: Checking setup.sh at {setup_sh}, exists: {setup_sh.exists()}"
-            )
-            print(f"Debug: Checking init.sh at {init_sh}, exists: {init_sh.exists()}")
             # Check if it has expected convention structure
             if (deployment_dir / "setup.sh").exists() or (
                 deployment_dir / "init.sh"
@@ -242,7 +236,7 @@ class DeploymentDiscovery:
                 try:
                     return DeploymentConfig.from_spot_dir(spot_dir)
                 except Exception as e:
-                    print(f"Failed to load deployment config: {e}")
+                    logger.error(f"Failed to load deployment config: {e}")
                     return None
 
         elif mode == DeploymentMode.CONVENTION:

@@ -122,3 +122,4 @@ instance-files/opt/uploaded_files/orchestrator_token
 instance-files/opt/uploaded_files/aws-credentials
 !instance-files/bacalhau/orchestrator_endpoint.example
 !instance-files/bacalhau/orchestrator_token.example
+src/amauo/__version__
