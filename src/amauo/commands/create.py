@@ -916,7 +916,9 @@ def _run_cleanup_script() -> None:
             pass  # Cleanup failures shouldn't block deployment
 
 
-def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
+def cmd_create(
+    config: SimpleConfig, state: SimpleStateManager, debug: bool = False
+) -> None:
     """Create spot instances across configured regions with enhanced real-time progress tracking."""
     # Run aggressive cleanup before deployment to prevent file conflicts
     _run_cleanup_script()
@@ -1023,7 +1025,7 @@ def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
 
     # Setup local logging
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = f"amauo_creation_{timestamp}.log"
+    log_filename = f"amauo_creation_{timestamp}.log" if debug else None
 
     # Generate unique deployment ID for this batch
     deployment_id = f"amauo-{timestamp}-{str(uuid.uuid4())[:8]}"
@@ -1038,9 +1040,14 @@ def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
     except Exception:
         creator = "unknown"
 
-    # Create console handler with instance IP map
+    # Create log buffer for in-memory storage (always enabled)
+    from ..utils.logging import LogBuffer
+
+    log_buffer = LogBuffer(maxlen=100)
+
+    # Create console handler with instance IP map and log buffer
     instance_ip_map: dict[str, str] = {}
-    console_handler = ConsoleLogger(console, instance_ip_map)
+    console_handler = ConsoleLogger(console, instance_ip_map, log_buffer)
     logger = setup_logger("amauo_creator", log_filename, console_handler)
 
     # Check for SSH key configuration
@@ -1133,8 +1140,25 @@ def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
         active_count = sum(
             1 for item in creation_status.values() if "SKIPPED" not in item["status"]
         )
+
+        # Count completed instances (SUCCESS or ERROR)
+        completed_count = sum(
+            1
+            for item in creation_status.values()
+            if "SUCCESS" in item["status"] or "ERROR" in item["status"]
+        )
+
+        # Calculate progress percentage
+        progress_pct = (completed_count / active_count * 100) if active_count > 0 else 0
+
+        # Create progress bar [████░░░] X/Y (Z%)
+        bar_length = 8
+        filled = int(bar_length * progress_pct / 100)
+        bar = "█" * filled + "░" * (bar_length - filled)
+        progress_str = f"[{bar}] {completed_count}/{active_count} ({progress_pct:.0f}%)"
+
         table = create_instance_table(
-            title=f"Creating instances ({active_count} active)",
+            title=f"Creating instances {progress_str}",
             show_lines=False,
             padding=(0, 1),
         )
@@ -1142,7 +1166,7 @@ def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
         sorted_items = sorted(creation_status.items(), key=lambda x: x[0])
 
         # Limit table rows to prevent pushing log panel off screen
-        # Show priority: errors, then in-progress, then success
+        # Show priority: in-progress, then errors, then success (changed order per summary)
         error_items = []
         progress_items = []
         success_items = []
@@ -1160,11 +1184,15 @@ def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
             else:
                 progress_items.append((key, item))
 
-        # Combine in priority order: errors first (most important), then in-progress, then success
+        # Combine in priority order: in-progress → errors → completed (keep active visible)
         all_items = progress_items + error_items + success_items
 
-        # Show all instances - no limit
-        for _key, item in all_items:
+        # Apply 20-row limit with overflow summary
+        MAX_ROWS = 20
+        displayed_items = all_items[:MAX_ROWS]
+        overflow_count = len(all_items) - MAX_ROWS
+
+        for _key, item in displayed_items:
             status = item["status"]
 
             if "SUCCESS" in status:
@@ -1184,22 +1212,64 @@ def cmd_create(config: SimpleConfig, state: SimpleStateManager) -> None:
                 item["created"],
             )
 
+        # Add overflow summary row if needed
+        if overflow_count > 0:
+            # Count overflow by status
+            overflow_deployed = sum(
+                1 for _, item in all_items[MAX_ROWS:] if "SUCCESS" in item["status"]
+            )
+            overflow_errors = sum(
+                1 for _, item in all_items[MAX_ROWS:] if "ERROR" in item["status"]
+            )
+            overflow_pending = overflow_count - overflow_deployed - overflow_errors
+
+            summary_parts = []
+            if overflow_deployed > 0:
+                summary_parts.append(f"{overflow_deployed} deployed")
+            if overflow_errors > 0:
+                summary_parts.append(f"{overflow_errors} errors")
+            if overflow_pending > 0:
+                summary_parts.append(f"{overflow_pending} pending")
+
+            overflow_summary = (
+                f"... | +{overflow_count} more | {', '.join(summary_parts)}"
+            )
+            add_instance_row(
+                table,
+                "[dim]...[/dim]",
+                "[dim]...[/dim]",
+                f"[dim]{overflow_summary}[/dim]",
+                "",
+                "",
+                "",
+            )
+
         # Create layout with table taking most space and logs at bottom
         layout = Layout()
 
-        # Create log panel
+        # Create log panel - read from buffer or file
         log_content = ""
-        try:
-            with open(log_filename) as f:
-                # Read last 10 lines for the log panel
-                lines = [line.rstrip() for line in f.readlines()[-10:]]
-                log_content = "\n".join(lines)
-        except (OSError, FileNotFoundError):
-            log_content = "Log file not available yet..."
+        if log_filename:
+            # Debug mode: read from file
+            try:
+                with open(log_filename) as f:
+                    # Read last 10 lines for the log panel
+                    lines = [line.rstrip() for line in f.readlines()[-10:]]
+                    log_content = "\n".join(lines)
+            except (OSError, FileNotFoundError):
+                log_content = "Log file not available yet..."
+            log_title = f"[dim]Log: {log_filename}[/dim]"
+        else:
+            # Normal mode: read from buffer
+            lines = log_buffer.get_lines()[-10:]  # Last 10 messages
+            log_content = (
+                "\n".join(lines) if lines else "[dim]Waiting for logs...[/dim]"
+            )
+            log_title = "[dim]Recent Activity[/dim]"
 
         log_panel = Panel(
-            log_content if log_content else "[dim]Waiting for logs...[/dim]",
-            title=f"[dim]Log: {log_filename}[/dim]",
+            log_content,
+            title=log_title,
             border_style="dim",
         )
 

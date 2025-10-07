@@ -25,21 +25,26 @@ class DestroyManager:
     """Manages instance destruction with live Rich updates."""
 
     def __init__(
-        self, config: SimpleConfig, state: SimpleStateManager, console: Console
+        self,
+        config: SimpleConfig,
+        state: SimpleStateManager,
+        console: Console,
+        debug: bool = False,
     ):
         self.config = config
         self.state = state
         self.console = console
+        self.debug = debug
         self.logger: Optional[Logger] = None
         self.status_lock = Lock()
         self.instance_status: dict[str, dict[str, Any]] = {}
         self.start_time = datetime.now()
         self.ui_manager = UIManager(console)
 
-    def initialize_logger(self) -> str:
+    def initialize_logger(self) -> Optional[str]:
         """Set up logging."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_filename = f"amauo_destroy_{timestamp}.log"
+        log_filename = f"amauo_destroy_{timestamp}.log" if self.debug else None
         self.logger = setup_logger("amauo_destroyer", log_filename)
         return log_filename
 
@@ -449,7 +454,10 @@ class DestroyManager:
 
 
 def cmd_destroy(
-    config: SimpleConfig, state: SimpleStateManager, verbose: bool = False
+    config: SimpleConfig,
+    state: SimpleStateManager,
+    verbose: bool = False,
+    debug: bool = False,
 ) -> None:
     """Destroy all instances with enhanced UI."""
     if not check_aws_auth():
@@ -461,5 +469,5 @@ def cmd_destroy(
         force_interactive=True,
         legacy_windows=False,
     )
-    manager = DestroyManager(config, state, console)
+    manager = DestroyManager(config, state, console, debug=debug)
     manager.run(verbose=verbose)

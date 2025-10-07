@@ -125,11 +125,17 @@ def _show_directory_status(
     is_flag=True,
     help="Show version and exit",
 )
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug mode with log files",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
     config: str,
     version: bool,
+    debug: bool,
 ) -> None:
     """
     🌟 Amauo - Deploy Bacalhau compute nodes effortlessly across the cloud.
@@ -151,6 +157,7 @@ def cli(
     # Store common options in context
     ctx.ensure_object(dict)
     ctx.obj["config_path"] = config
+    ctx.obj["debug"] = debug
 
     # Initialize core components
     try:
@@ -182,9 +189,10 @@ def create(ctx: click.Context) -> None:
     """Deploy Bacalhau compute nodes across multiple regions."""
     config: SimpleConfig = ctx.obj["config"]
     state: SimpleStateManager = ctx.obj["state"]
+    debug: bool = ctx.obj.get("debug", False)
 
     try:
-        cmd_create(config, state)
+        cmd_create(config, state, debug=debug)
     except KeyboardInterrupt:
         console.print("\n[yellow]⚠️  Deployment interrupted by user[/yellow]")
         sys.exit(130)
@@ -199,9 +207,10 @@ def destroy(ctx: click.Context) -> None:
     """Destroy all instances and clean up resources."""
     config: SimpleConfig = ctx.obj["config"]
     state: SimpleStateManager = ctx.obj["state"]
+    debug: bool = ctx.obj.get("debug", False)
 
     try:
-        cmd_destroy(config=config, state=state)
+        cmd_destroy(config=config, state=state, debug=debug)
     except KeyboardInterrupt:
         console.print("\n[yellow]⚠️  Destruction interrupted by user[/yellow]")
         sys.exit(130)
