@@ -1,20 +1,19 @@
 """Version management for amauo package."""
 
-from pathlib import Path
+try:
+    from importlib.metadata import version as get_version
 
-# Get the directory where this file is located
-_this_dir = Path(__file__).parent
-
-# Read version from __version__ file
-_version_file = _this_dir / "__version__"
-with open(_version_file, "r") as f:
-    __version__ = f.read().strip()
+    __version__ = get_version("amauo")
+except Exception:
+    # Fallback for development
+    __version__ = "0.0.0+dev"
 
 version = __version__
 
-# Create version tuple
-version_parts = __version__.split(".")
-__version_tuple__ = tuple(int(p) for p in version_parts if p.isdigit())
+# Create version tuple (handle dev versions)
+version_clean = __version__.split("+")[0]  # Remove +dev suffix
+version_parts = version_clean.split(".")
+__version_tuple__ = tuple(int(p) for p in version_parts[:3] if p.isdigit())
 version_tuple = __version_tuple__
 
 # Git commit info (not used but kept for compatibility)
