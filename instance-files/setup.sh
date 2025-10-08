@@ -149,23 +149,26 @@ echo "Retrieving instance metadata..."
 # Test metadata service connectivity first
 if curl -s --max-time 2 http://169.254.169.254/ > /dev/null 2>&1; then
     echo "DEBUG: EC2 metadata service is accessible"
-    INSTANCE_ID=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/instance-id || echo "unknown")
-    REGION=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/placement/region || echo "unknown")
+    INSTANCE_ID=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "")
+    REGION=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo "")
+
+    # Check if we got empty responses
+    if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "unknown" ]; then
+        echo "WARNING: Could not retrieve instance ID from metadata service"
+        INSTANCE_ID=$(hostname)
+        echo "INFO: Using hostname as fallback: $INSTANCE_ID"
+    fi
+
+    if [ -z "$REGION" ] || [ "$REGION" = "unknown" ]; then
+        echo "WARNING: Could not retrieve region from metadata service"
+        REGION="us-west-2"
+        echo "INFO: Using default region: $REGION"
+    fi
 else
     echo "WARNING: EC2 metadata service is not accessible"
-    INSTANCE_ID="unknown"
-    REGION="unknown"
-fi
-
-if [ "$INSTANCE_ID" = "unknown" ]; then
-    echo "WARNING: Could not retrieve instance ID from metadata service"
     INSTANCE_ID=$(hostname)
-    echo "INFO: Using hostname as fallback: $INSTANCE_ID"
-fi
-
-if [ "$REGION" = "unknown" ]; then
-    echo "WARNING: Could not retrieve region from metadata service"
     REGION="us-west-2"
+    echo "INFO: Using hostname as fallback: $INSTANCE_ID"
     echo "INFO: Using default region: $REGION"
 fi
 
@@ -231,6 +234,13 @@ if grep -q "{{" /bacalhau_node/config.yaml; then
 fi
 
 echo "SUCCESS: Configuration validation passed"
+
+# Create a node-specific Docker Compose file with proper node name
+echo "Creating node-specific Docker Compose configuration..."
+NODE_NAME="bacalhau-${INSTANCE_ID:-$(hostname)}"
+sed "s|command: \\[\"serve\", \"--config\", \"/etc/bacalhau/config.yaml\"\\]|command: [\"serve\", \"--config\", \"/etc/bacalhau/config.yaml\", \"--name\", \"$NODE_NAME\"]|" /opt/compose/docker-compose-bacalhau.yaml > /opt/compose/docker-compose-bacalhau-node.yaml
+
+echo "DEBUG: Created node-specific compose with name: $NODE_NAME"
 
 # Create a node-specific Docker Compose file with proper node name
 echo "Creating node-specific Docker Compose configuration..."

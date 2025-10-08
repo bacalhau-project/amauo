@@ -4,8 +4,8 @@ Simplified deployment script for instance-files mirroring approach.
 Most deployment logic is now handled by setup.sh during cloud-init.
 """
 
-import time
 import subprocess
+import time
 
 
 def log(message):

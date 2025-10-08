@@ -67,12 +67,12 @@ def _show_directory_status(
 
     # Files directory (from config if available)
     files_dir = None
-    if (
-        config_obj
-        and hasattr(config_obj, "aws")
-        and hasattr(config_obj.aws, "files_directory")
-    ):
-        files_dir = Path(config_obj.aws.files_directory)
+    if config_obj:
+        try:
+            files_dir = Path(config_obj.files_directory())
+        except Exception:
+            # Default fallback
+            files_dir = Path("files")
     else:
         # Default fallback
         files_dir = Path("files")
