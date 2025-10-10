@@ -102,14 +102,16 @@ def transfer_portable_files(
                 update_instance_state(state, instance_id, "uploading")
 
             # Upload the tarball
-            log_function("Uploading tarball to /tmp/deployment.tar.gz...")
-            success = ssh_manager.transfer_file(
+            log_function(f"Starting upload to {host} ({tarball_size_mb:.1f} MB)...")
+            success, error_msg = ssh_manager.transfer_file(
                 shared_tarball_path, "/tmp/deployment.tar.gz"
             )
 
             if not success:
-                log_function("ERROR: Tarball upload failed")
+                log_function(f"ERROR: Upload to {host} failed - {error_msg}")
                 return False
+
+            log_function(f"Upload to {host} completed")
 
             if progress_callback:
                 progress_callback("Upload", 50, "Verifying upload...")
@@ -134,7 +136,9 @@ def transfer_portable_files(
                     )
                     return False
 
-                log_function("✓ Upload verified - sizes match")
+                log_function(
+                    f"✓ Deployment package uploaded successfully ({tarball_size_mb:.1f} MB)"
+                )
 
             except ValueError:
                 log_function(f"ERROR: Invalid remote size response: {stdout}")
@@ -202,23 +206,26 @@ def transfer_portable_files(
 
             # Upload the tarball
             tarball_size_mb = os.path.getsize(tarball_path) / 1024 / 1024
-            log_function(f"Uploading tarball ({tarball_size_mb:.1f} MB)...")
+            log_function(f"Starting upload to {host} ({tarball_size_mb:.1f} MB)...")
             if progress_callback:
                 progress_callback(
                     "Upload", 25, f"Uploading tarball ({tarball_size_mb:.1f} MB)"
                 )
 
-            success = ssh_manager.transfer_file(
+            success, error_msg = ssh_manager.transfer_file(
                 str(tarball_path), "/tmp/deployment.tar.gz"
             )
 
             if not success:
-                log_function("ERROR: Failed to upload tarball")
+                log_function(f"ERROR: Upload to {host} failed - {error_msg}")
                 if progress_callback:
                     progress_callback("Upload", 0, "Failed to upload tarball")
                 return False
 
-            log_function("✓ Tarball uploaded successfully")
+            log_function(f"Upload to {host} completed")
+            log_function(
+                f"✓ Deployment package uploaded successfully ({tarball_size_mb:.1f} MB)"
+            )
 
             # Update state to uploaded
             if state and instance_id:
@@ -399,15 +406,25 @@ def post_creation_setup(
                 # Show detailed progress with icons
                 if "SSH" in status:
                     icon = "🔐"
-                elif "tarball" in status.lower():
+                    upload_st = "-"
+                elif "tarball" in status.lower() or "upload" in status.lower():
                     icon = "📦"
+                    upload_st = "uploading"
+                elif "verif" in status.lower():
+                    icon = "✓"
+                    upload_st = "verifying"
                 elif "setup" in status.lower():
                     icon = "⚙️"
+                    upload_st = "✓"
                 elif "complete" in status.lower():
                     icon = "✅"
+                    upload_st = "✓"
                 else:
                     icon = "📤"
-                update_status_func(instance_key, f"{icon} {status}")
+                    upload_st = "preparing"
+                update_status_func(
+                    instance_key, f"{icon} {status}", upload_status=upload_st
+                )
 
             if deployment_config:
                 # Portable deployment - upload based on deployment config
@@ -1130,6 +1147,7 @@ def cmd_create(
                 "region": region,
                 "instance_id": "pending...",
                 "status": "WAIT: Starting...",
+                "upload_status": "-",
                 "type": instance_type,
                 "public_ip": "pending...",
                 "created": "pending...",
@@ -1210,6 +1228,7 @@ def cmd_create(
                 item["type"],
                 item["public_ip"],
                 item["created"],
+                item.get("upload_status", "-"),
             )
 
         # Add overflow summary row if needed
@@ -1239,6 +1258,7 @@ def cmd_create(
                 "[dim]...[/dim]",
                 "[dim]...[/dim]",
                 f"[dim]{overflow_summary}[/dim]",
+                "",
                 "",
                 "",
                 "",
@@ -1287,6 +1307,7 @@ def cmd_create(
         instance_id: Optional[str] = None,
         ip: Optional[str] = None,
         created: Optional[bool] = None,
+        upload_status: Optional[str] = None,
         is_final: bool = False,
     ) -> bool:
         with lock:
@@ -1298,6 +1319,8 @@ def cmd_create(
                     creation_status[key]["public_ip"] = ip
                 if created:
                     creation_status[key]["created"] = created
+                if upload_status is not None:
+                    creation_status[key]["upload_status"] = upload_status
 
                 log_ip = ip if ip else "N/A"
                 log_id = instance_id if instance_id else key

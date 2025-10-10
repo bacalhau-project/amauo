@@ -42,12 +42,13 @@ class UIManager:
         )
 
         # Standard columns with consistent widths
-        table.add_column("Region", style="magenta", width=18, no_wrap=True)
+        table.add_column("Region", style="magenta", width=16, no_wrap=True)
         table.add_column("Instance ID", style="cyan", width=22, no_wrap=True)
-        table.add_column("Status", style="yellow", width=25, no_wrap=True)
-        table.add_column("Type", style="green", width=12, no_wrap=True)
-        table.add_column("Public IP", style="blue", width=18, no_wrap=True)
-        table.add_column("Created", style="white", width=28, no_wrap=True)
+        table.add_column("Status", style="yellow", width=22, no_wrap=True)
+        table.add_column("Upload", style="blue", width=12, no_wrap=True)
+        table.add_column("Type", style="green", width=10, no_wrap=True)
+        table.add_column("Public IP", style="blue", width=16, no_wrap=True)
+        table.add_column("Created", style="white", width=20, no_wrap=True)
 
         return table
 
@@ -60,12 +61,14 @@ class UIManager:
         instance_type: str,
         public_ip: str,
         created: str,
+        upload_status: str = "-",
     ) -> None:
         """Add a row to an instance table."""
         table.add_row(
             str(region),
             str(instance_id),
             str(status),
+            str(upload_status),
             str(instance_type),
             str(public_ip),
             str(created),

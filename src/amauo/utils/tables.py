@@ -34,10 +34,18 @@ def add_instance_row(
     instance_type: str,
     public_ip: str,
     created: str,
+    upload_status: str = "-",
 ) -> None:
     """Add a row to an instance table with proper string conversion."""
     _ui_manager.add_instance_row(
-        table, region, instance_id, status, instance_type, public_ip, created
+        table,
+        region,
+        instance_id,
+        status,
+        instance_type,
+        public_ip,
+        created,
+        upload_status,
     )
 
 

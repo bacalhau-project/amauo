@@ -21,6 +21,8 @@ class SSHManager:
             "-o",
             "UserKnownHostsFile=/dev/null",
             "-o",
+            "LogLevel=ERROR",
+            "-o",
             "ConnectTimeout=10",
             "-o",
             "ServerAliveInterval=30",
@@ -97,14 +99,22 @@ class SSHManager:
 
     def transfer_file(
         self, local_path: str, remote_path: str, timeout: int = 120, retries: int = 3
-    ) -> bool:
-        """Transfer a single file to the remote host with retry logic."""
+    ) -> tuple[bool, str]:
+        """Transfer a single file to the remote host with retry logic.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
         return self._scp_with_retry(local_path, remote_path, timeout, retries)
 
     def transfer_directory(
         self, local_path: str, remote_path: str, timeout: int = 300, retries: int = 3
-    ) -> bool:
-        """Transfer a directory to the remote host with retry logic."""
+    ) -> tuple[bool, str]:
+        """Transfer a directory to the remote host with retry logic.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
         return self._scp_with_retry(
             local_path, remote_path, timeout, retries, recursive=True
         )
@@ -116,8 +126,12 @@ class SSHManager:
         timeout: int,
         retries: int,
         recursive: bool = False,
-    ) -> bool:
-        """Execute SCP with retry logic."""
+    ) -> tuple[bool, str]:
+        """Execute SCP with retry logic.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
         scp_cmd = ["scp", "-i", self.private_key_path, *self.ssh_base_args]
 
         if recursive:
@@ -125,23 +139,32 @@ class SSHManager:
 
         scp_cmd.extend([local_path, f"{self.username}@{self.hostname}:{remote_path}"])
 
+        last_error = ""
         for attempt in range(retries):
             try:
                 result = subprocess.run(
                     scp_cmd, capture_output=True, text=True, timeout=timeout
                 )
                 if result.returncode == 0:
-                    return True
-                elif attempt < retries - 1:
-                    time.sleep(2**attempt)  # Exponential backoff
+                    return True, ""
+                else:
+                    last_error = (
+                        result.stderr.strip()
+                        or result.stdout.strip()
+                        or "Unknown error"
+                    )
+                    if attempt < retries - 1:
+                        time.sleep(2**attempt)  # Exponential backoff
             except subprocess.TimeoutExpired:
+                last_error = f"Timeout after {timeout}s"
                 if attempt < retries - 1:
                     time.sleep(2**attempt)
-            except Exception:
+            except Exception as e:
+                last_error = str(e)
                 if attempt == retries - 1:
-                    return False
+                    return False, last_error
 
-        return False
+        return False, last_error
 
     def create_remote_directory(self, path: str, retries: int = 3) -> bool:
         """Create a directory on the remote host."""
@@ -223,12 +246,12 @@ class BatchSSHManager:
 
     def transfer_to_all(
         self, local_path: str, remote_path: str, timeout: int = 120
-    ) -> dict[str, bool]:
+    ) -> dict[str, tuple[bool, str]]:
         """
         Transfer a file to all hosts.
 
         Returns:
-            Dict mapping hostname to success status
+            Dict mapping hostname to (success, error_message) tuple
         """
         results = {}
         for hostname, manager in self.managers.items():
