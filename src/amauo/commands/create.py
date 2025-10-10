@@ -386,17 +386,40 @@ def post_creation_setup(
         try:
             # Wait for SSH to be available
             logger.info(f"[{instance_id} @ {instance_ip}] Waiting for SSH...")
-            update_status_func(instance_key, "⏳ Waiting for SSH...")
+
+            def ssh_progress(attempt: int, elapsed: int, status: str) -> None:
+                """Update status during SSH wait."""
+                if status == "connected":
+                    update_status_func(instance_key, "✅ SSH connected")
+                elif status == "booting":
+                    update_status_func(
+                        instance_key,
+                        f"⏳ SSH connecting... (try {attempt}, {elapsed}s)",
+                    )
+                elif status == "timeout":
+                    update_status_func(
+                        instance_key,
+                        f"⏳ Waiting for boot... (try {attempt}, {elapsed}s)",
+                    )
+                else:  # unreachable
+                    update_status_func(
+                        instance_key, f"⏳ Starting SSH... (try {attempt}, {elapsed}s)"
+                    )
+
+            update_status_func(instance_key, "⏳ Waiting for SSH (0s)...")
 
             if not wait_for_ssh_only(
-                instance_ip, username, expanded_key_path, timeout=300
+                instance_ip,
+                username,
+                expanded_key_path,
+                timeout=300,
+                progress_callback=ssh_progress,
             ):
                 logger.error(f"[{instance_id} @ {instance_ip}] SSH timeout")
                 update_status_func(instance_key, "❌ SSH timeout", is_final=True)
                 return
 
             logger.info(f"[{instance_id} @ {instance_ip}] SSH available")
-            update_status_func(instance_key, "✅ SSH connected")
 
             # Transfer files
             logger.info(f"[{instance_id} @ {instance_ip}] Starting file transfer...")
@@ -801,12 +824,22 @@ def create_instances_in_region_with_table(
 
         for i, inst_id in enumerate(instance_ids):
             key = instance_keys[i]
-            update_status_func(key, "Waiting for public IP", instance_id=inst_id)
+            update_status_func(key, "⏳ Assigning IP... (0s)", instance_id=inst_id)
 
         # Poll for public IPs
         time.sleep(1)  # Give AWS a moment to register the instances
         max_attempts = 30
+        poll_start = time.time()
         for attempt in range(max_attempts):
+            elapsed = int(time.time() - poll_start)
+
+            # Update status for instances still waiting
+            for i, inst_id in enumerate(instance_ids):
+                if not any(ci["id"] == inst_id for ci in created_instances):
+                    key = instance_keys[i]
+                    update_status_func(
+                        key, f"⏳ Assigning IP... ({elapsed}s)", instance_id=inst_id
+                    )
             try:
                 instances_data = ec2.describe_instances(InstanceIds=instance_ids)
 

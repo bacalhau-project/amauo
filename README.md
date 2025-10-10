@@ -178,7 +178,7 @@ uvx amauo create --dry-run
 ```bash
 # Clone the repository for development
 git clone <repository-url>
-cd bacalhau-skypilot
+cd amauo
 
 # Install in development mode with uv
 uv pip install -e .
@@ -351,7 +351,7 @@ ssh -i ~/.ssh/your-key ubuntu@instance-ip
 ### Development Setup
 ```bash
 git clone <repository-url>
-cd bacalhau-skypilot
+cd amauo
 
 # Install in development mode
 uv pip install -e .

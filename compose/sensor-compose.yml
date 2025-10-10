@@ -44,4 +44,4 @@ services:
 
     labels:
       - "com.bacalhau.service=sensor"
-      - "com.bacalhau.deployment=skypilot"
+      - "com.bacalhau.deployment=amauo"

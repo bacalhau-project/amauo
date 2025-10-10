@@ -56,11 +56,24 @@ def wait_for_ssh_only(
     username: str,
     private_key_path: str,
     timeout: int = DEFAULT_SSH_TIMEOUT,
+    progress_callback: Optional[Callable] = None,
 ) -> bool:
-    """Simple SSH availability check - no cloud-init monitoring."""
+    """Simple SSH availability check - no cloud-init monitoring.
+
+    Args:
+        hostname: Target host IP
+        username: SSH username
+        private_key_path: Path to private key
+        timeout: Maximum wait time in seconds
+        progress_callback: Optional callback(attempt, elapsed, status) for progress updates
+    """
     start_time = time.time()
+    attempt = 0
 
     while time.time() - start_time < timeout:
+        attempt += 1
+        elapsed = int(time.time() - start_time)
+
         try:
             result = subprocess.run(
                 [
@@ -72,6 +85,8 @@ def wait_for_ssh_only(
                     "-o",
                     "UserKnownHostsFile=/dev/null",
                     "-o",
+                    "LogLevel=ERROR",
+                    "-o",
                     "ConnectTimeout=3",
                     f"{username}@{hostname}",
                     'echo "SSH ready"',
@@ -81,9 +96,22 @@ def wait_for_ssh_only(
                 timeout=5,
             )
             if result.returncode == 0:
+                if progress_callback:
+                    progress_callback(attempt, elapsed, "connected")
                 return True
+            else:
+                # SSH responded but not ready (common during boot)
+                if progress_callback:
+                    progress_callback(attempt, elapsed, "booting")
+        except subprocess.TimeoutExpired:
+            # Connection timeout - instance likely still booting
+            if progress_callback:
+                progress_callback(attempt, elapsed, "timeout")
         except Exception:
-            pass
+            # Other error - network issue or SSH not started
+            if progress_callback:
+                progress_callback(attempt, elapsed, "unreachable")
+
         time.sleep(2)  # Check more frequently
 
     return False

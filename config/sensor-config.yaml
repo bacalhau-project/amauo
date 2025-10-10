@@ -84,5 +84,5 @@ node:
 
   # Additional metadata to include in exports
   metadata:
-    deployment_type: "skypilot"
+    deployment_type: "amauo"
     cloud_provider: "aws"

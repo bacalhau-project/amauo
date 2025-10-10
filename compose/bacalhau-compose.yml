@@ -50,4 +50,4 @@ services:
 
     labels:
       - "com.bacalhau.service=compute"
-      - "com.bacalhau.deployment=skypilot"
+      - "com.bacalhau.deployment=amauo"
