@@ -1311,14 +1311,14 @@ def cmd_create(
                     log_content = "\n".join(lines)
             except (OSError, FileNotFoundError):
                 log_content = "Log file not available yet..."
-            log_title = f"[dim]Log: {log_filename}[/dim]"
+            log_title = f"[dim]Log: {log_filename} • amauo v{__version__}[/dim]"
         else:
             # Normal mode: read from buffer
             lines = log_buffer.get_lines()[-10:]  # Last 10 messages
             log_content = (
                 "\n".join(lines) if lines else "[dim]Waiting for logs...[/dim]"
             )
-            log_title = "[dim]Recent Activity[/dim]"
+            log_title = f"[dim]Recent Activity • amauo v{__version__}[/dim]"
 
         log_panel = Panel(
             log_content,
@@ -1379,10 +1379,11 @@ def cmd_create(
 
         with Live(
             generate_layout(),
-            refresh_per_second=4,
+            refresh_per_second=2,
             console=console,
-            screen=True,
-            redirect_stdout=False,
+            screen=False,
+            redirect_stdout=True,
+            redirect_stderr=True,
         ) as live:
 
             def create_region_instances(region: str, count: int) -> None:
