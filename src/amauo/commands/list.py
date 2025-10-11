@@ -46,6 +46,13 @@ def cmd_list(state: SimpleStateManager, refresh: bool = False) -> None:
                 status = get_instance_status(instance["id"], instance["region"])
             else:
                 status = instance.get("state", "unknown")
+                # Translate internal states to user-friendly status
+                if status == "deployed":
+                    status = "✅ Deployed"
+                elif status == "provisioned":
+                    status = "⏳ Provisioning"
+                elif status == "complete":
+                    status = "✅ Deployed"
 
             add_instance_row(
                 table,
@@ -59,6 +66,7 @@ def cmd_list(state: SimpleStateManager, refresh: bool = False) -> None:
                 created=instance.get(
                     "created", "unknown"
                 ),  # Changed from created_at to created
+                upload_status=instance.get("upload_status", "-"),
             )
 
         # Display the table

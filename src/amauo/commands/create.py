@@ -37,12 +37,15 @@ from ..utils.ssh import transfer_files_scp, wait_for_ssh_only
 from ..utils.tables import add_instance_row, create_instance_table
 
 
-def update_instance_state(state: Any, instance_id: str, status: str) -> None:
+def update_instance_state(
+    state: Any, instance_id: str, status: str, upload_status: str = "-"
+) -> None:
     """Update the deployment state of an instance in the state file."""
     instances = state.load_instances()
     for inst in instances:
         if inst["id"] == instance_id:
             inst["state"] = status
+            inst["upload_status"] = upload_status
             break
     state.save_instances(instances)
 
@@ -157,7 +160,7 @@ def transfer_portable_files(
 
             # Update state
             if state and instance_id:
-                update_instance_state(state, instance_id, "complete")
+                update_instance_state(state, instance_id, "deployed", "✓")
 
             return True
 
@@ -256,7 +259,7 @@ def transfer_portable_files(
 
             # Update state to complete (setup is async, so we mark it complete after launching)
             if state and instance_id:
-                update_instance_state(state, instance_id, "complete")
+                update_instance_state(state, instance_id, "deployed", "✓")
 
             # Clean up local tarball
             handler.cleanup()
