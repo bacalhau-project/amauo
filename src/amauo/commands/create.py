@@ -386,6 +386,10 @@ def post_creation_setup(
         thread_name = f"Setup-{instance_id}"
         threading.current_thread().name = thread_name
 
+        # Immediately update status to show thread is running
+        update_status_func(instance_key, "⏳ Initializing SSH check...")
+        logger.info(f"[{instance_id} @ {instance_ip}] Thread started - initializing")
+
         try:
             # Wait for SSH to be available
             logger.info(f"[{instance_id} @ {instance_ip}] Waiting for SSH...")
@@ -540,9 +544,10 @@ def post_creation_setup(
                 error_msg = f"{error_msg[:37]}..."
             update_status_func(instance_key, f"ERROR: {error_msg}", is_final=True)
 
-    # Process instances in parallel
+    # Process instances in parallel (max 10 concurrent connections)
+    max_workers = min(len(instances), 10)
     with ThreadPoolExecutor(
-        max_workers=len(instances), thread_name_prefix="Setup"
+        max_workers=max_workers, thread_name_prefix="Setup"
     ) as executor:
         futures = []
         for i, instance in enumerate(instances):
