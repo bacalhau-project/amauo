@@ -1436,18 +1436,36 @@ def cmd_create(
                 # Status will be shown in the layout, not printed separately
                 live.update(generate_layout())
 
-                # Always run post-creation setup to upload files
-                post_creation_setup(
-                    all_instances,
-                    config,
-                    update_status,
-                    logger,
-                    deployment_config,
-                    state,
-                    shared_tarball_path,
-                )
+                # Run post-creation setup with live display updates
+                # post_creation_setup runs in ThreadPoolExecutor, so we need
+                # to keep updating the Live display while it runs
+                setup_complete = threading.Event()
 
-                # Keep the live display running during setup
+                def run_setup() -> None:
+                    try:
+                        post_creation_setup(
+                            all_instances,
+                            config,
+                            update_status,
+                            logger,
+                            deployment_config,
+                            state,
+                            shared_tarball_path,
+                        )
+                    finally:
+                        setup_complete.set()
+
+                setup_thread = threading.Thread(
+                    target=run_setup, name="PostSetup", daemon=True
+                )
+                setup_thread.start()
+
+                # Keep updating display while setup runs
+                while not setup_complete.is_set():
+                    live.update(generate_layout())
+                    setup_complete.wait(timeout=0.5)
+
+                # Final update after setup completes
                 live.update(generate_layout())
             elif not all_instances:
                 rich_error("No instances were successfully created.")
